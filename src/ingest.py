@@ -69,7 +69,10 @@ REQUIRED_METADATA = [
 
 
 # --- STEP 1: LOAD ---
-def load_csv(filepath, required_cols):
+def load_csv(filepath: str, required_cols: list[str]) -> pd.DataFrame:
+    """
+    Reads a CSV file, converts the whole dataset to str, and keeps only required columns. Returns a DataFrame.
+    """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
     logger.info(f"Reading {filepath}")
@@ -88,14 +91,20 @@ def load_csv(filepath, required_cols):
 
 
 # --- STEP 2: TRUNCATE ---
-def truncate_table(conn, table):
+def truncate_table(conn, table: str) -> None:
+    """
+    Truncates table.
+    """
     with conn.cursor() as cur:
         cur.execute(f"TRUNCATE TABLE {table};")
     logger.info(f"Truncated {table}")
 
 
 # --- STEP 3: INSERT DATA (BATCH) ---
-def bulk_insert(conn, table, columns, df: pd.DataFrame):
+def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
+    """
+    Inserts DataFrame rows into table using execute_values for efficient batch inserts. Returns the number of rows inserted.
+    """
     sql = f"INSERT INTO {table} ({", ".join(columns)}) VALUES %s"
 
     records = []
@@ -110,7 +119,10 @@ def bulk_insert(conn, table, columns, df: pd.DataFrame):
 
 
 # --- MAIN ---
-def main():
+def main() -> None:
+    """
+    Orchestrates the ingestion process from CSV to Database.
+    """
     logger.info("Starting ingestion")
     conn = get_connection()
     conn.autocommit = False
