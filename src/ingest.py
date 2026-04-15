@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import pandas as pd
 from psycopg2.extras import execute_values
@@ -7,6 +8,7 @@ from utils import get_connection
 
 # --- CONFIG ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
+logger = logging.getLogger(__name__)
 
 INPUT_DIR = "data/raw/"
 REQUIRED_METADATA = [
@@ -70,7 +72,7 @@ REQUIRED_METADATA = [
 def load_csv(filepath, required_cols):
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
-    logging.info(f"Reading {filepath}")
+    logger.info(f"Reading {filepath}")
 
     df = pd.read_csv(filepath, dtype=str)
 
@@ -81,7 +83,7 @@ def load_csv(filepath, required_cols):
 
     df = df[required_cols]
 
-    logging.info(f"Rows read: {len(df)}")
+    logger.info(f"Rows read: {len(df)}")
     return df
 
 
@@ -89,7 +91,7 @@ def load_csv(filepath, required_cols):
 def truncate_table(conn, table):
     with conn.cursor() as cur:
         cur.execute(f"TRUNCATE TABLE {table};")
-    logging.info(f"Truncated {table}")
+    logger.info(f"Truncated {table}")
 
 
 # --- STEP 3: INSERT DATA (BATCH) ---
@@ -109,29 +111,32 @@ def bulk_insert(conn, table, columns, df: pd.DataFrame):
 
 # --- MAIN ---
 def main():
-    logging.info("Starting ingestion")
+    logger.info("Starting ingestion")
     conn = get_connection()
     conn.autocommit = False
 
     try:
         for entry in REQUIRED_METADATA:
-            logging.info(f"Ingesting {entry['table']}")
+            logger.info(f"Ingesting {entry['table']}")
 
             filepath = INPUT_DIR + entry["csv_file"]
             df = load_csv(filepath, entry["columns"])
             truncate_table(conn, entry["table"])
             rows_inserted = bulk_insert(conn, entry["table"], entry["columns"], df)
-            logging.info(f"Inserted {rows_inserted} rows into {entry["table"]}")
+            logger.info(f"Inserted {rows_inserted} rows into {entry["table"]}")
 
         conn.commit()
-        logging.info("Ingestion complete - all tables commited")
+        logger.info("Ingestion complete - all tables commited")
     except Exception as e:
         conn.rollback()
-        logging.error(f"Ingestion failed - rolling back: {e}")
+        logger.error(f"Ingestion failed - rolling back: {e}")
         raise
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        sys.exit(1)
