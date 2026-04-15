@@ -63,7 +63,7 @@ CREATE TABLE staging.stg_products (
 -- ==================================================
 
 -- dim_customers
-DORP TABLE IF EXISTS warehouse.dim_customers;
+DROP TABLE IF EXISTS warehouse.dim_customers;
 CREATE TABLE warehouse.dim_customers (
     customer_key SERIAL PRIMARY KEY,
     customer_id TEXT NOT NULL UNIQUE,
@@ -96,12 +96,12 @@ CREATE TABLE warehouse.dim_time (
     year SMALLINT NOT NULL,
     quarter SMALLINT NOT NULL,
     month SMALLINT NOT NULL,
-    month_name TEXT,
+    month_name TEXT NOT NULL,
     week_of_year SMALLINT NOT NULL,
     day_of_month SMALLINT NOT NULL,
     day_of_week SMALLINT NOT NULL,
     day_name TEXT NOT NULL,
-    is_weekend BOOLEAN NOT NULL,
+    is_weekend BOOLEAN NOT NULL
 );
 
 -- fact_orders (Grain: one row per order_item)
@@ -117,7 +117,6 @@ CREATE TABLE warehouse.fact_orders (
     
     price NUMERIC(10, 2),
     freight_value NUMERIC(10, 2),
-    total_revenue NUMERIC(10, 2),
     total_revenue NUMERIC(10, 2),
     order_status TEXT,
     purchase_timestamp TIMESTAMP,
