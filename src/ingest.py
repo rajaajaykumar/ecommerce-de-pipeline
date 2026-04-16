@@ -7,11 +7,15 @@ from utils import get_connection
 
 
 # --- CONFIG ---
-logging.basicConfig(level=logging.INFO, format="%(asctime)s:%(levelname)s:%(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s:%(levelname)s:%(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 INPUT_DIR = "data/raw/"
-REQUIRED_METADATA = [
+INGEST_MANIFEST = [
     {
         "csv_file": "olist_orders_dataset.csv",
         "table": "staging.stg_orders",
@@ -128,8 +132,8 @@ def main() -> None:
     conn.autocommit = False
 
     try:
-        for entry in REQUIRED_METADATA:
-            logger.info(f"Ingesting {entry['table']}")
+        for entry in INGEST_MANIFEST:
+            logger.info(f"Ingesting {entry["table"]}")
 
             filepath = INPUT_DIR + entry["csv_file"]
             df = load_csv(filepath, entry["columns"])
