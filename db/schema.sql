@@ -63,7 +63,7 @@ CREATE TABLE staging.stg_products (
 -- ==================================================
 
 -- dim_customers
-DROP TABLE IF EXISTS warehouse.dim_customers;
+DROP TABLE IF EXISTS warehouse.dim_customers CASCADE;
 CREATE TABLE warehouse.dim_customers (
     customer_key SERIAL PRIMARY KEY,
     customer_id TEXT NOT NULL UNIQUE,
@@ -75,7 +75,7 @@ CREATE TABLE warehouse.dim_customers (
 );
 
 -- dim_products
-DROP TABLE IF EXISTS warehouse.dim_products;
+DROP TABLE IF EXISTS warehouse.dim_products CASCADE;
 CREATE TABLE warehouse.dim_products (
     product_key SERIAL PRIMARY KEY,
     product_id TEXT NOT NULL UNIQUE,
@@ -89,7 +89,7 @@ CREATE TABLE warehouse.dim_products (
 );
 
 -- dim_time (Generated from order_purchase_timestamp values in fact load)
-DROP TABLE IF EXISTS warehouse.dim_time;
+DROP TABLE IF EXISTS warehouse.dim_time CASCADE;
 CREATE TABLE warehouse.dim_time (
     time_key SERIAL PRIMARY KEY,
     full_date DATE NOT NULL UNIQUE,
