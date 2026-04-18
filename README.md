@@ -47,8 +47,6 @@ pip install -r requirements.txt
 python run_pipeline.py
 ```
 
----
-
 ## Project structure
 
 ```
@@ -58,6 +56,8 @@ ecommerce-de-pipeline/
 │
 ├── db/
 │   └── schema.sql        # staging and warehouse table definitions (DDL)
+│
+├── images/               # architecture and schema diagram
 │
 ├── src/
 │   ├── __init__.py
@@ -75,8 +75,6 @@ ecommerce-de-pipeline/
 └── run_pipeline.py       # orchestrates all stages
 ```
 
----
-
 ## Design decisions
 
 * Staging tables mirror CSV columns exactly with no type conversion and uses all-TEXT columns. Postgres type casting happens in `transform.sql` where bad values can be handled explicitly with `NULLIF` and `TRIM` before casting.
@@ -85,15 +83,11 @@ Enforcing types at load would cause silent failures on the known inconsistencies
 * Dimension tables use SCD Type 1 (overwrite). Olist is a static historical snapshot with no future updates, so SCD Type 2 (start/end dates, active flag) is unnecessary as it would produce columns that are always NULL or always TRUE.
 * Full reload (truncate + load): Simpler and reliable for batch pipelines
 
----
-
 ## Known limitations
 
 * No incremental loading: Since the dataset is static, the pipeline is truncate-and-reload on every run
 * Limited dataset coverage: payments/sellers data are not currently ingested
 * No orchestration tool (Airflow)
-
----
 
 ## Tech stack
 
