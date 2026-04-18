@@ -1,6 +1,6 @@
 import os
 import logging
-from utils import get_connection
+from src.utils import get_connection
 
 
 logging.basicConfig(

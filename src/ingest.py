@@ -3,13 +3,13 @@ import sys
 import logging
 import pandas as pd
 from psycopg2.extras import execute_values
-from utils import get_connection
+from src.utils import get_connection
 
 
 # --- CONFIG ---
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s:%(levelname)s:%(message)s",
+    format="%(asctime)s - %(levelname)-8s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)

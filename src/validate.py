@@ -1,13 +1,13 @@
 import os
 import logging
 import psycopg2
-from utils import get_connection
+from src.utils import get_connection
 
 
 # --- CONFIG ---
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s:%(levelname)s:%(message)s",
+    format="%(asctime)s - %(levelname)-8s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def check_nulls(cur, table: str, required_cols: list[str]) -> None:
 
     if nulls:
         raise ValueError(f"{table} null check failed:\n" + "\n".join(nulls))
-    logger.info(f"  Null check passed ({len(required_cols)} columns checked)")
+    logger.info(f"Null check passed ({len(required_cols)} columns checked)")
 
 
 def check_duplicates(cur, table: str, primary_key: list[str]) -> None:
@@ -95,7 +95,7 @@ def check_duplicates(cur, table: str, primary_key: list[str]) -> None:
 
 
 def main() -> None:
-    logger.info("=" * 10 + " Starting validation " + "=" * 10)
+    logger.info("Starting validation")
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -105,9 +105,9 @@ def main() -> None:
                 check_nulls(cur, entry["table"], entry["required_columns"])
                 check_duplicates(cur, entry["table"], entry["primary_key"])
                 logger.info(f"{entry["table"]} passed all checks")
-        logger.info("=" * 10 + " Validation complete - all tables passed " + "=" * 10)
+        logger.info("Validation complete - all tables passed")
     except ValueError as e:
-        logger.error("=" * 10 + f" Validation failed:\n{e} " + "=" * 10)
+        logger.error(f"Validation failed:\n{e}")
         raise
     finally:
         conn.close()
