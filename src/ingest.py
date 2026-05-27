@@ -5,7 +5,6 @@ import pandas as pd
 from psycopg2.extras import execute_values
 from src.utils import get_connection
 
-
 # --- CONFIG ---
 logging.basicConfig(
     level=logging.INFO,
@@ -113,7 +112,7 @@ def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
 
     records = []
     for row in df.itertuples(index=False, name=None):
-        record = tuple(None if pd.isna(v) else v for v in row)
+        record = tuple(None if pd.isna(v) or v == "" else v for v in row)
         records.append(record)
 
     with conn.cursor() as cur:
