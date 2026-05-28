@@ -1,7 +1,5 @@
-import os
 import sys
 import logging
-import pandas as pd
 from datetime import date
 from src.utils import get_connection
 
@@ -58,7 +56,7 @@ def check_row_count(cur, table: str) -> None:
     count = cur.fetchone()[0]
     if count == 0:
         raise ValueError(f"{table} is empty")
-    logger.info(f"Row count: {count}")
+    logger.info("%s row count: %s", table, count)
 
 
 def check_nulls(cur, table: str, required_cols: list[str]) -> list:
@@ -110,49 +108,49 @@ def check_duplicates(cur, table: str, primary_key: list[str]) -> list:
     return dupes
 
 
-def main() -> None:
+def main(conn) -> list[dict]:
     logger.info("Starting validation")
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            total_errors = 0
-            for entry in VALIDATE_MANIFEST:
-                logger.info(f"Validating {entry["table"]}")
-                check_row_count(cur, entry["table"])
-                errors = []
-                errors.extend(
-                    check_nulls(cur, entry["table"], entry["required_columns"])
-                )
-                errors.extend(
-                    check_duplicates(cur, entry["table"], entry["primary_key"])
-                )
+    all_errors = []
+    total_errors = 0
 
-                if errors:
-                    total_errors += len(errors)
-                    os.makedirs("data/rejected", exist_ok=True)
-                    filename = f"data/rejected/{entry['table'].replace('.', '_')}_{date.today()}.csv"
-                    pd.DataFrame(errors).to_csv(filename, index=False)
-                    logger.warning(
-                        f"{entry['table']}: {len(errors)} issues written to {filename}"
-                    )
-                else:
-                    logger.info(f"{entry["table"]} passed all checks")
+    with conn.cursor() as cur:
+        for entry in VALIDATE_MANIFEST:
+            logger.info(f"Validating {entry['table']}")
+            check_row_count(cur, entry["table"])
+            errors = []
+            errors.extend(check_nulls(cur, entry["table"], entry["required_columns"]))
+            errors.extend(check_duplicates(cur, entry["table"], entry["primary_key"]))
 
-            if total_errors == 0:
-                logger.info("Validation complete - all tables passed")
+            if errors:
+                total_errors += len(errors)
+                all_errors.extend(errors)
+                logger.warning(f"{entry['table']}: {len(errors)} issues quarantined")
             else:
-                logger.warning(
-                    f"Validation complete - {total_errors} issues across all tables"
-                )
-    except ValueError as e:
-        logger.error(f"Validation failed:\n{e}")
-        raise
-    finally:
-        conn.close()
+                logger.info(f"{entry['table']} passed all checks")
+
+    if total_errors == 0:
+        logger.info("Validation complete - all tables passed")
+    else:
+        logger.warning(
+            f"Validation complete - {total_errors} issues across all tables quarantined"
+        )
+
+    return all_errors
 
 
 if __name__ == "__main__":
+    conn = None
+
     try:
-        main()
+        conn = get_connection()
+        conn.autocommit = False
+        main(conn)
+        # conn.commit()
     except Exception:
+        # if conn:
+        # conn.rollback()
+        logger.exception("Execution failed")
         sys.exit(1)
+    finally:
+        if conn:
+            conn.close()
