@@ -1,8 +1,9 @@
 import os
+import sys
 import logging
-import psycopg2
+import pandas as pd
+from datetime import date
 from src.utils import get_connection
-
 
 # --- CONFIG ---
 logging.basicConfig(
@@ -60,7 +61,7 @@ def check_row_count(cur, table: str) -> None:
     logger.info(f"Row count: {count}")
 
 
-def check_nulls(cur, table: str, required_cols: list[str]) -> None:
+def check_nulls(cur, table: str, required_cols: list[str]) -> list:
     """
     Validate that required columns contain no NULL values.
     """
@@ -70,17 +71,24 @@ def check_nulls(cur, table: str, required_cols: list[str]) -> None:
         cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} IS NULL;")
         null_count = cur.fetchone()[0]
         if null_count > 0:
-            nulls.append(f"{col}: {null_count:,} null rows")
+            nulls.append(
+                {
+                    "table": table,
+                    "pk_value": None,
+                    "reason": f"NULL in required column: {col} ({null_count} rows affected)",
+                    "affected_count": null_count,
+                }
+            )
 
-    if nulls:
-        raise ValueError(f"{table} null check failed:\n" + "\n".join(nulls))
-    logger.info(f"Null check passed ({len(required_cols)} columns checked)")
+    logger.info(f"Null check completed ({len(required_cols)} columns checked)")
+    return nulls
 
 
-def check_duplicates(cur, table: str, primary_key: list[str]) -> None:
+def check_duplicates(cur, table: str, primary_key: list[str]) -> list:
     """
     Validate that specified primary key columns are unique across all rows.
     """
+    dupes = []
     pk_cols = ", ".join(primary_key)
     cur.execute(
         f"SELECT {pk_cols}, COUNT(*) AS cnt FROM {table} GROUP BY {pk_cols} HAVING COUNT(*) > 1 ORDER BY cnt DESC;"
@@ -88,10 +96,18 @@ def check_duplicates(cur, table: str, primary_key: list[str]) -> None:
 
     duplicates = cur.fetchall()
     if duplicates:
-        raise ValueError(
-            f"{table} duplicate found in primary keys:\n    {"\n    ".join(str(row) for row in duplicates)}"
-        )
-    logger.info(f"Duplicate check passed (PK: {pk_cols}).")
+        for row in duplicates:
+            dupes.append(
+                {
+                    "table": table,
+                    "pk_value": str(row[:-1]),
+                    "reason": f"DUPLICATE PK: {pk_cols} (count: {row[-1]})",
+                    "affected_count": row[-1],
+                }
+            )
+
+    logger.info(f"Duplicate check completed (PK: {pk_cols}).")
+    return dupes
 
 
 def main() -> None:
@@ -99,13 +115,35 @@ def main() -> None:
     conn = get_connection()
     try:
         with conn.cursor() as cur:
+            total_errors = 0
             for entry in VALIDATE_MANIFEST:
                 logger.info(f"Validating {entry["table"]}")
                 check_row_count(cur, entry["table"])
-                check_nulls(cur, entry["table"], entry["required_columns"])
-                check_duplicates(cur, entry["table"], entry["primary_key"])
-                logger.info(f"{entry["table"]} passed all checks")
-        logger.info("Validation complete - all tables passed")
+                errors = []
+                errors.extend(
+                    check_nulls(cur, entry["table"], entry["required_columns"])
+                )
+                errors.extend(
+                    check_duplicates(cur, entry["table"], entry["primary_key"])
+                )
+
+                if errors:
+                    total_errors += len(errors)
+                    os.makedirs("data/rejected", exist_ok=True)
+                    filename = f"data/rejected/{entry['table'].replace('.', '_')}_{date.today()}.csv"
+                    pd.DataFrame(errors).to_csv(filename, index=False)
+                    logger.warning(
+                        f"{entry['table']}: {len(errors)} issues written to {filename}"
+                    )
+                else:
+                    logger.info(f"{entry["table"]} passed all checks")
+
+            if total_errors == 0:
+                logger.info("Validation complete - all tables passed")
+            else:
+                logger.warning(
+                    f"Validation complete - {total_errors} issues across all tables"
+                )
     except ValueError as e:
         logger.error(f"Validation failed:\n{e}")
         raise
@@ -114,7 +152,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # try:
-    main()
-    # except Exception:
-    #     sys.exit(1)
+    try:
+        main()
+    except Exception:
+        sys.exit(1)
