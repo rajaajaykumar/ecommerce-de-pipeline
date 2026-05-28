@@ -4,6 +4,6 @@ __pycache__/
 
 .env
 .venv/
-data/raw/
+data/
 
 .tmp
