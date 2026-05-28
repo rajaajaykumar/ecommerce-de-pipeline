@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import pandas as pd
+from pathlib import Path
 from psycopg2.extras import execute_values
 from src.utils import get_connection
 
@@ -13,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-INPUT_DIR = "data/raw/"
+INPUT_DIR = Path("data/raw/")
 INGEST_MANIFEST = [
     {
         "csv_file": "olist_orders_dataset.csv",
@@ -108,7 +109,8 @@ def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
     """
     Inserts DataFrame rows into table using execute_values for efficient batch inserts. Returns the number of rows inserted.
     """
-    sql = f"INSERT INTO {table} ({", ".join(columns)}) VALUES %s"
+    cols = ", ".join(columns)
+    sql = f"INSERT INTO {table} ({cols}) VALUES %s"
 
     records = []
     for row in df.itertuples(index=False, name=None):
@@ -122,36 +124,37 @@ def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
 
 
 # --- MAIN ---
-def main() -> None:
+def main(conn) -> int:
     """
     Orchestrates the ingestion process from CSV to Database.
     """
     logger.info("Starting ingestion")
-    conn = get_connection()
-    conn.autocommit = False
-
-    try:
-        for entry in INGEST_MANIFEST:
-            logger.info(f"Ingesting {entry["table"]}")
-
-            filepath = INPUT_DIR + entry["csv_file"]
-            df = load_csv(filepath, entry["columns"])
-            truncate_table(conn, entry["table"])
-            rows_inserted = bulk_insert(conn, entry["table"], entry["columns"], df)
-            logger.info(f"Inserted {rows_inserted} rows into {entry["table"]}")
-
-        conn.commit()
-        logger.info("Ingestion complete - all tables commited")
-    except Exception as e:
-        conn.rollback()
-        logger.error(f"Ingestion failed - rolling back: {e}")
-        raise
-    finally:
-        conn.close()
+    total_inserted = 0
+    for entry in INGEST_MANIFEST:
+        logger.info(f"Ingesting {entry['table']}")
+        filepath = INPUT_DIR / entry["csv_file"]
+        df = load_csv(filepath, entry["columns"])
+        truncate_table(conn, entry["table"])
+        rows_inserted = bulk_insert(conn, entry["table"], entry["columns"], df)
+        total_inserted += rows_inserted
+        logger.info(f"Inserted {rows_inserted} rows into {entry['table']}")
+    logger.info(f"Ingestion complete: total rows inserted={total_inserted}")
+    return total_inserted
 
 
 if __name__ == "__main__":
+    conn = None
+
     try:
-        main()
+        conn = get_connection()
+        conn.autocommit = False
+        main(conn)
+        conn.commit()
     except Exception:
+        if conn:
+            conn.rollback()
+        logger.exception("Execution failed")
         sys.exit(1)
+    finally:
+        if conn:
+            conn.close()
