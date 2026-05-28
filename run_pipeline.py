@@ -1,8 +1,8 @@
 import sys
-import time
 import logging
+from src.utils import get_connection
+from src.audit import open_batch, close_batch, write_rejected_records
 from src import ingest, validate, transform
-
 
 # --- CONFIG ---
 logging.basicConfig(
@@ -13,36 +13,38 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# --- RUN (STAGE) ---
-def run_stage(name: str, func) -> float:
-    """
-    Runs pipeline stage and returns elapsed time in seconds.
-    """
-    logger.info("=" * 20 + f" STAGE: {name.upper()} " + "=" * 20)
-    start_time = time.time()
-    try:
-        func()
-    except Exception as e:
-        logger.error(f"Stage '{name}' failed: {e}")
-        raise
-    elapsed = time.time() - start_time
-    logger.info(f"STAGE '{name}' completed in {elapsed:.2f}s")
-    return elapsed
-
-
 def main() -> None:
-    start_time = time.time()
-    stages = [
-        ("ingest", ingest.main),
-        ("validate", validate.main),
-        ("transform", transform.main),
-    ]
+    conn = get_connection()
+    conn.autocommit = False
+    batch_id = None
 
-    for name, func in stages:
-        run_stage(name, func)
+    try:
+        batch_id = open_batch(conn, process_name="olist_pipeline", source="olist_csv")
+        logger.info(f"Pipeline started: batch_id={batch_id}")
 
-    total = time.time() - start_time
-    logger.info("=" * 15 + f" Pipeline completed in {total:.2f}s " + "=" * 15)
+        stg_rows_inserted = ingest.main(conn)
+        errors = validate.main(conn, batch_id)
+        write_rejected_records(conn, batch_id, errors)
+        wh_rows_inserted, wh_rows_updated = transform.main(conn)
+
+        close_batch(
+            conn,
+            batch_id,
+            status="success",
+            rows_inserted=wh_rows_inserted,
+            rows_updated=wh_rows_updated,
+            rows_rejected=len(errors),
+        )
+        logger.info(f"Pipeline complete: batch_id={batch_id}")
+
+    except Exception as e:
+        logger.exception(f"Pipeline failed: batch_id={batch_id}")
+        conn.rollback()
+        if batch_id:
+            close_batch(conn, batch_id, status="failure", error_message=str(e))
+        raise
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
