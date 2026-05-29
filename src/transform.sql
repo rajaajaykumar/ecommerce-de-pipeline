@@ -43,8 +43,7 @@ FROM staging.stg_products
 WHERE product_id IS NOT NULL;
 
 -- dim_time (Source: order_purchase_timestamp in staging.stg_orders)
-TRUNCATE warehouse.dim_time RESTART IDENTITY CASCADE;
-
+-- Incremental: insert only dates not already in warehouse
 INSERT INTO warehouse.dim_time (
     full_date,
     year,
@@ -59,21 +58,22 @@ INSERT INTO warehouse.dim_time (
 )
 SELECT DISTINCT
     purchase_date AS full_date,
-    EXTRACT(YEAR FROM purchase_date)::SMALLINT AS year,
-    EXTRACT(QUARTER FROM purchase_date)::SMALLINT AS quarter,
-    EXTRACT(MONTH FROM purchase_date)::SMALLINT AS month,
-    TO_CHAR(purchase_date, 'Month') AS month_name,
-    EXTRACT(WEEK FROM purchase_date)::SMALLINT AS week_of_year,
-    EXTRACT(DAY FROM purchase_date)::SMALLINT AS day_of_month,
-    EXTRACT(ISODOW FROM purchase_date)::SMALLINT AS day_of_week,
-    TO_CHAR(purchase_date, 'Day') AS day_name,
-    EXTRACT(ISODOW FROM purchase_date) IN (6, 7) AS is_weekend
+    EXTRACT(YEAR FROM purchase_date)::SMALLINT,
+    EXTRACT(QUARTER FROM purchase_date)::SMALLINT,
+    EXTRACT(MONTH FROM purchase_date)::SMALLINT,
+    TO_CHAR(purchase_date, 'Month'),
+    EXTRACT(WEEK FROM purchase_date)::SMALLINT,
+    EXTRACT(DAY FROM purchase_date)::SMALLINT,
+    EXTRACT(ISODOW FROM purchase_date)::SMALLINT,
+    TO_CHAR(purchase_date, 'Day'),
+    EXTRACT(ISODOW FROM purchase_date) IN (6, 7)
 FROM (
     SELECT
         order_purchase_timestamp::DATE AS purchase_date
     FROM staging.stg_orders
     WHERE order_purchase_timestamp IS NOT NULL
-) dates;
+) dates
+WHERE purchase_date NOT IN (SELECT full_date FROM warehouse.dim_time);
 
 -- fact_orders (Source: staging.stg_order_items + stg_orders)
 INSERT INTO warehouse.fact_orders (
@@ -114,4 +114,7 @@ JOIN warehouse.dim_products p ON oi.product_id = p.product_id
 JOIN warehouse.dim_customers c ON o.customer_id = c.customer_id
 JOIN warehouse.dim_time t ON o.order_purchase_timestamp::DATE = t.full_date
 WHERE oi.order_id IS NOT NULL
-    AND oi.product_id IS NOT NULL;
+    AND oi.product_id IS NOT NULL
+    AND (oi.order_id, oi.order_item_id::INTEGER) NOT IN (
+        SELECT order_id, order_item_id FROM warehouse.fact_orders
+    );
