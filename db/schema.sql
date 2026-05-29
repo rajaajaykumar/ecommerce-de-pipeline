@@ -13,6 +13,7 @@ CREATE SCHEMA IF NOT EXISTS warehouse;
 DROP TYPE IF EXISTS audit.batch_status CASCADE;
 CREATE TYPE audit.batch_status AS ENUM ('success', 'failure', 'running');
 
+DROP TABLE IF EXISTS audit.etl_audit_batch;
 CREATE TABLE IF NOT EXISTS audit.etl_audit_batch (
     batch_id SERIAL PRIMARY KEY,
     process_name TEXT NOT NULL,
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS audit.etl_audit_batch (
     error_message TEXT
 );
 
+DROP TABLE IF EXISTS audit.rejected_records;
 CREATE TABLE IF NOT EXISTS audit.rejected_records (
     rejection_id SERIAL PRIMARY KEY,
     batch_id INT NOT NULL,
