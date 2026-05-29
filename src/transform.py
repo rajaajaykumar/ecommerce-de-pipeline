@@ -14,9 +14,10 @@ def main(conn) -> tuple[int, int]:
         sql = f.read()
     with conn.cursor() as cur:
         cur.execute(sql)
-    logger.info("Transformations complete")
-    # TODO: Replace placeholder counts with actual warehouse insert/update metrics during SCD2
-    return 0, 0
+        rows_inserted = cur.rowcount
+    logger.info(f"Transformations complete: {rows_inserted} fact rows inserted")
+    # TODO: Replace placeholder counts: rows_inserted, rows_updated (0 until SCD2)
+    return rows_inserted, 0
 
 
 if __name__ == "__main__":
