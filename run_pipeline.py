@@ -23,7 +23,7 @@ def main() -> None:
         logger.info(f"Pipeline started: batch_id={batch_id}")
 
         stg_rows_inserted = ingest.main(conn)
-        errors = validate.main(conn, batch_id)
+        errors = validate.main(conn)
         write_rejected_records(conn, batch_id, errors)
         wh_rows_inserted, wh_rows_updated = transform.main(conn)
 
