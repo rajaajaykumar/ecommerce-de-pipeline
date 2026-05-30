@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS audit.rejected_records (
     source_table TEXT,
     raw_row TEXT,
     reason TEXT,
+    affected_count INT,
     rejected_at TIMESTAMP DEFAULT NOW()
 );
 
