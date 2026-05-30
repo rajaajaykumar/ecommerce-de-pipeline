@@ -62,7 +62,7 @@ def reconcile(conn, rows_inserted: int, rows_updated: int) -> None:
         )
 
 
-def main(conn) -> tuple[int, int]:
+def main(conn, batch_id: int) -> tuple[int, int]:
     logger.info("Running SQL transformations")
 
     before_cust, before_prod = get_expired_counts(conn)
@@ -71,6 +71,7 @@ def main(conn) -> tuple[int, int]:
         sql = f.read()
 
     with conn.cursor() as cur:
+        cur.execute(f"SET LOCAL app.batch_id = {str(batch_id)}")
         cur.execute(sql)
         rows_inserted = cur.rowcount  # fact_orders must remain last in transform.sql
     logger.info(f"Transformations complete: {rows_inserted} fact rows inserted")

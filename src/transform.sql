@@ -8,7 +8,8 @@
 UPDATE warehouse.dim_customers AS d
 SET
     is_current = FALSE,
-    effective_to = CURRENT_DATE - 1
+    effective_to = CURRENT_DATE - 1,
+    batch_id = current_setting('app.batch_id')::INT
 FROM staging.stg_customers AS s
 WHERE d.customer_id = s.customer_id
     AND d.is_current = TRUE
@@ -27,7 +28,8 @@ INSERT INTO warehouse.dim_customers (
     state,
     effective_from,
     effective_to,
-    is_current
+    is_current,
+    batch_id
 )
 SELECT
     s.customer_id,
@@ -37,7 +39,8 @@ SELECT
     UPPER(TRIM(s.customer_state)) AS state,
     CURRENT_DATE,
     NULL,
-    TRUE
+    TRUE,
+    current_setting('app.batch_id')::INT
 FROM staging.stg_customers s
 WHERE s.customer_id IS NOT NULL
     AND NOT EXISTS (
@@ -52,7 +55,8 @@ WHERE s.customer_id IS NOT NULL
 UPDATE warehouse.dim_products AS d
 SET
     is_current = FALSE,
-    effective_to = CURRENT_DATE - 1
+    effective_to = CURRENT_DATE - 1,
+    batch_id = current_setting('app.batch_id')::INT
 FROM staging.stg_products s
 WHERE d.product_id = s.product_id
     AND d.is_current = TRUE
@@ -74,7 +78,8 @@ INSERT INTO warehouse.dim_products (
     width_cm,
     effective_from,
     effective_to,
-    is_current
+    is_current,
+    batch_id
 )
 SELECT
     s.product_id,
@@ -85,7 +90,8 @@ SELECT
     NULLIF(TRIM(s.product_width_cm), '')::NUMERIC AS width_cm,
     CURRENT_DATE,
     NULL,
-    TRUE
+    TRUE,
+    current_setting('app.batch_id')::INT
 FROM staging.stg_products s
 WHERE s.product_id IS NOT NULL
     AND NOT EXISTS (
@@ -106,7 +112,8 @@ INSERT INTO warehouse.dim_time (
     day_of_month,
     day_of_week,
     day_name,
-    is_weekend
+    is_weekend,
+    batch_id
 )
 SELECT DISTINCT
     purchase_date AS full_date,
@@ -118,7 +125,8 @@ SELECT DISTINCT
     EXTRACT(DAY FROM purchase_date)::SMALLINT,
     EXTRACT(ISODOW FROM purchase_date)::SMALLINT,
     TO_CHAR(purchase_date, 'Day'),
-    EXTRACT(ISODOW FROM purchase_date) IN (6, 7)
+    EXTRACT(ISODOW FROM purchase_date) IN (6, 7),
+    current_setting('app.batch_id')::INT
 FROM (
     SELECT
         order_purchase_timestamp::DATE AS purchase_date
@@ -141,7 +149,8 @@ INSERT INTO warehouse.fact_orders (
     purchase_timestamp,
     delivery_timestamp,
     estimated_delivery_date,
-    delivery_days
+    delivery_days,
+    batch_id
 )
 SELECT
     oi.order_id,
@@ -159,7 +168,8 @@ SELECT
     CASE
         WHEN o.order_delivered_customer_date IS NOT NULL AND o.order_purchase_timestamp IS NOT NULL
         THEN EXTRACT(Day FROM(o.order_delivered_customer_date::TIMESTAMP - o.order_purchase_timestamp::TIMESTAMP))::INTEGER
-    END AS delivery_days
+    END AS delivery_days,
+    current_setting('app.batch_id')::INT
 FROM staging.stg_order_items oi
 JOIN staging.stg_orders o ON oi.order_id = o.order_id
 JOIN warehouse.dim_products p ON oi.product_id = p.product_id
