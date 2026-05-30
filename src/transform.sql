@@ -2,45 +2,97 @@
 -- TRANSFORM: staging -> warehouse
 -- ==================================================
 
--- dim_customers (Source: staging.stg_customers)
-TRUNCATE warehouse.dim_customers RESTART IDENTITY CASCADE;
+-- dim_customers SCD2 (Source: staging.stg_customers)
 
+-- Step 1: Update changed record
+UPDATE warehouse.dim_customers AS d
+SET
+    is_current = FALSE,
+    effective_to = CURRENT_DATE - 1
+FROM staging.stg_customers AS s
+WHERE d.customer_id = s.customer_id
+    AND d.is_current = TRUE
+    AND (
+        d.city IS DISTINCT FROM INITCAP(TRIM(s.customer_city))
+        OR d.state IS DISTINCT FROM UPPER(TRIM(s.customer_state))
+        OR d.zip_code_prefix IS DISTINCT FROM s.customer_zip_code_prefix
+    );
+
+-- Step 2: Insert new record
 INSERT INTO warehouse.dim_customers (
     customer_id,
     customer_unique_id,
     zip_code_prefix,
     city,
-    state
+    state,
+    effective_from,
+    effective_to,
+    is_current
 )
 SELECT
-    customer_id,
-    customer_unique_id,
-    customer_zip_code_prefix AS zip_code_prefix,
-    INITCAP(TRIM(customer_city)) AS city,
-    UPPER(TRIM(customer_state)) AS state
-FROM staging.stg_customers
-WHERE customer_id IS NOT NULL;
+    s.customer_id,
+    s.customer_unique_id,
+    s.customer_zip_code_prefix AS zip_code_prefix,
+    INITCAP(TRIM(s.customer_city)) AS city,
+    UPPER(TRIM(s.customer_state)) AS state,
+    CURRENT_DATE,
+    NULL,
+    TRUE
+FROM staging.stg_customers s
+WHERE s.customer_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM warehouse.dim_customers d
+        WHERE d.customer_id = s.customer_id
+            AND d.is_current = TRUE
+    );
 
 -- dim_products (Source: staging.stg_products)
-TRUNCATE warehouse.dim_products RESTART IDENTITY CASCADE;
 
+-- Step 1: Update changed record
+UPDATE warehouse.dim_products AS d
+SET
+    is_current = FALSE,
+    effective_to = CURRENT_DATE - 1
+FROM staging.stg_products s
+WHERE d.product_id = s.product_id
+    AND d.is_current = TRUE
+    AND (
+        d.category_name IS DISTINCT FROM INITCAP(REPLACE(TRIM(s.product_category_name), '_', ' '))
+        OR d.weight_g IS DISTINCT FROM NULLIF(TRIM(s.product_weight_g), '')::NUMERIC
+        OR d.length_cm IS DISTINCT FROM NULLIF(TRIM(s.product_length_cm), '')::NUMERIC
+        OR d.height_cm IS DISTINCT FROM NULLIF(TRIM(s.product_height_cm), '')::NUMERIC
+        OR d.width_cm IS DISTINCT FROM NULLIF(TRIM(s.product_width_cm), '')::NUMERIC
+    );
+
+-- Step 2: Insert new record
 INSERT INTO warehouse.dim_products (
     product_id,
     category_name,
     weight_g,
     length_cm,
     height_cm,
-    width_cm
+    width_cm,
+    effective_from,
+    effective_to,
+    is_current
 )
 SELECT
-    product_id,
-    INITCAP(REPLACE(TRIM(product_category_name), '_', ' ')) AS category_name,
-    NULLIF(TRIM(product_weight_g), '')::NUMERIC AS weight_g, 
-    NULLIF(TRIM(product_length_cm), '')::NUMERIC AS length_cm,
-    NULLIF(TRIM(product_height_cm), '')::NUMERIC AS height_cm,
-    NULLIF(TRIM(product_width_cm), '')::NUMERIC AS width_cm
-FROM staging.stg_products
-WHERE product_id IS NOT NULL;
+    s.product_id,
+    INITCAP(REPLACE(TRIM(s.product_category_name), '_', ' ')) AS category_name,
+    NULLIF(TRIM(s.product_weight_g), '')::NUMERIC AS weight_g, 
+    NULLIF(TRIM(s.product_length_cm), '')::NUMERIC AS length_cm,
+    NULLIF(TRIM(s.product_height_cm), '')::NUMERIC AS height_cm,
+    NULLIF(TRIM(s.product_width_cm), '')::NUMERIC AS width_cm,
+    CURRENT_DATE,
+    NULL,
+    TRUE
+FROM staging.stg_products s
+WHERE s.product_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM warehouse.dim_products d
+        WHERE d.product_id = s.product_id
+          AND d.is_current = TRUE
+    );
 
 -- dim_time (Source: order_purchase_timestamp in staging.stg_orders)
 -- Incremental: insert only dates not already in warehouse
