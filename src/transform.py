@@ -73,7 +73,13 @@ def main(conn, batch_id: int) -> tuple[int, int]:
     with conn.cursor() as cur:
         cur.execute(f"SET LOCAL app.batch_id = {str(batch_id)}")
         cur.execute(sql)
-        rows_inserted = cur.rowcount  # fact_orders must remain last in transform.sql
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM warehouse.fact_orders WHERE batch_id = %s",
+            (batch_id,),
+        )
+        rows_inserted = cur.fetchone()[0]
     logger.info(f"Transformations complete: {rows_inserted} fact rows inserted")
 
     after_cust, after_prod = get_expired_counts(conn)
@@ -90,7 +96,8 @@ if __name__ == "__main__":
     try:
         conn = get_connection()
         conn.autocommit = False
-        main(conn)
+        # Placeholder batch_id for standalone testing
+        main(conn, batch_id=999999)
         conn.commit()
     except Exception:
         if conn:
