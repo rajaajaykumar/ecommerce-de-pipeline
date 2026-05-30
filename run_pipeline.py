@@ -22,10 +22,10 @@ def main() -> None:
         batch_id = open_batch(conn, process_name="olist_pipeline", source="olist_csv")
         logger.info(f"Pipeline started: batch_id={batch_id}")
 
-        stg_rows_inserted = ingest.main(conn)
+        stg_rows_inserted = ingest.main(conn, batch_id)
         errors = validate.main(conn)
         write_rejected_records(conn, batch_id, errors)
-        wh_rows_inserted, wh_rows_updated = transform.main(conn)
+        wh_rows_inserted, wh_rows_updated = transform.main(conn, batch_id)
 
         close_batch(
             conn,
