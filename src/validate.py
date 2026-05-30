@@ -145,10 +145,10 @@ if __name__ == "__main__":
         conn = get_connection()
         conn.autocommit = False
         main(conn)
-        # conn.commit()
+        conn.commit()
     except Exception:
-        # if conn:
-        # conn.rollback()
+        if conn:
+            conn.rollback()
         logger.exception("Execution failed")
         sys.exit(1)
     finally:
