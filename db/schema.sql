@@ -125,7 +125,6 @@ CREATE TABLE warehouse.dim_products (
     effective_to DATE,
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
     category_name TEXT,
-    category_name_en TEXT,
     weight_g NUMERIC,
     length_cm NUMERIC,
     height_cm NUMERIC,
