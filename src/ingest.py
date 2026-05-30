@@ -73,9 +73,9 @@ INGEST_MANIFEST = [
 
 
 # --- STEP 1: LOAD ---
-def load_csv(filepath: str, required_cols: list[str]) -> pd.DataFrame:
+def load_csv(filepath: Path, required_cols: list[str]) -> pd.DataFrame:
     """
-    Reads a CSV file, converts the whole dataset to str, and keeps only required columns. Returns a DataFrame.
+    Read a CSV file, convert the whole dataset to str, and keep only required columns. Return a DataFrame.
     """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
@@ -83,7 +83,7 @@ def load_csv(filepath: str, required_cols: list[str]) -> pd.DataFrame:
 
     df = pd.read_csv(filepath, dtype=str)
 
-    actual_cols = df.columns
+    actual_cols = set(df.columns)
     missing = [c for c in required_cols if c not in actual_cols]
     if missing:
         raise ValueError(f"{filepath} is missing columns: {missing}")
@@ -105,16 +105,19 @@ def truncate_table(conn, table: str) -> None:
 
 
 # --- STEP 3: INSERT DATA (BATCH) ---
-def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
+def bulk_insert(
+    conn, table: str, columns: list[str], batch_id: int, df: pd.DataFrame
+) -> int:
     """
-    Inserts DataFrame rows into table using execute_values for efficient batch inserts. Returns the number of rows inserted.
+    Insert DataFrame rows into table using execute_values for efficient batch inserts. Return the number of rows inserted.
     """
-    cols = ", ".join(columns)
+    cols = ", ".join(columns) + ", batch_id"
     sql = f"INSERT INTO {table} ({cols}) VALUES %s"
 
     records = []
     for row in df.itertuples(index=False, name=None):
         record = tuple(None if pd.isna(v) or v == "" else v for v in row)
+        record += (batch_id,)
         records.append(record)
 
     with conn.cursor() as cur:
@@ -124,9 +127,9 @@ def bulk_insert(conn, table: str, columns: list[str], df: pd.DataFrame) -> int:
 
 
 # --- MAIN ---
-def main(conn) -> int:
+def main(conn, batch_id) -> int:
     """
-    Orchestrates the ingestion process from CSV to Database.
+    Orchestrate the ingestion process from CSV to Database.
     """
     logger.info("Starting ingestion")
     total_inserted = 0
@@ -134,10 +137,16 @@ def main(conn) -> int:
         logger.info(f"Ingesting {entry['table']}")
         filepath = INPUT_DIR / entry["csv_file"]
         df = load_csv(filepath, entry["columns"])
+        if df.empty:
+            raise ValueError(f"{filepath} contains no data")
         truncate_table(conn, entry["table"])
-        rows_inserted = bulk_insert(conn, entry["table"], entry["columns"], df)
+        rows_inserted = bulk_insert(
+            conn, entry["table"], entry["columns"], batch_id, df
+        )
         total_inserted += rows_inserted
-        logger.info(f"Inserted {rows_inserted} rows into {entry['table']}")
+        logger.info(
+            f"Inserted {rows_inserted} rows into {entry['table']} (batch_id={batch_id})"
+        )
     logger.info(f"Ingestion complete: total rows inserted={total_inserted}")
     return total_inserted
 
@@ -148,7 +157,8 @@ if __name__ == "__main__":
     try:
         conn = get_connection()
         conn.autocommit = False
-        main(conn)
+        # Placeholder batch_id for standalone testing
+        main(conn, batch_id=999999)
         conn.commit()
     except Exception:
         if conn:
