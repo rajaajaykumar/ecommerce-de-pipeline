@@ -177,6 +177,8 @@ JOIN warehouse.dim_customers c ON o.customer_id = c.customer_id
 JOIN warehouse.dim_time t ON o.order_purchase_timestamp::DATE = t.full_date
 WHERE oi.order_id IS NOT NULL
     AND oi.product_id IS NOT NULL
-    AND (oi.order_id, oi.order_item_id::INTEGER) NOT IN (
-        SELECT order_id, order_item_id FROM warehouse.fact_orders
-    );
+    AND NOT EXISTS (
+        SELECT 1 FROM warehouse.fact_orders f
+        WHERE f.order_id = oi.order_id
+            AND f.order_item_id = oi.order_item_id::INTEGER
+    )
