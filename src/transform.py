@@ -8,10 +8,23 @@ logger = logging.getLogger(__name__)
 SQL_PATH = Path(__file__).parent / "transform.sql"
 
 
-def reconcile(conn, rows_inserted: int) -> None:
+def get_expired_counts(conn) -> tuple[int, int]:
     """
-    Compares staging vs warehouse counts.
-    Logs a reconciliation summary and a warning if no fact rows inserted.
+    Return counts of expired SCD2 records for dim_customers and dim_products.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM warehouse.dim_customers WHERE is_current = FALSE),
+                (SELECT COUNT(*) FROM warehouse.dim_products WHERE is_current = FALSE)
+        """)
+        return cur.fetchone()
+
+
+def reconcile(conn, rows_inserted: int, rows_updated: int) -> None:
+    """
+    Log reconciliation metrics for staging, fact, and dimension tables.
+    Report rows inserted/updated during the current run and warn if no fact rows are inserted.
     """
     with conn.cursor() as cur:
         cur.execute("""
@@ -36,10 +49,11 @@ def reconcile(conn, rows_inserted: int) -> None:
 
     logger.info("--- Reconciliation Summary ---")
     logger.info(f"Staging order items : {stage_items:,}")
-    logger.info(f"Fact rows this run : {rows_inserted:,}")
+    logger.info(f"Fact rows inserted this run : {rows_inserted:,}")
     logger.info(f"Fact rows total : {fact_total:,}")
     logger.info(f"dim_customers current : {cur_customers:,} (expired: {exp_customers})")
     logger.info(f"dim_products current : {cur_products:,} (expired: {exp_products})")
+    logger.info(f"Dimension rows updated this run : {rows_updated:,}")
     logger.info("------------------------------")
 
     if rows_inserted == 0:
@@ -50,6 +64,9 @@ def reconcile(conn, rows_inserted: int) -> None:
 
 def main(conn) -> tuple[int, int]:
     logger.info("Running SQL transformations")
+
+    before_cust, before_prod = get_expired_counts(conn)
+
     with open(SQL_PATH, "r") as f:
         sql = f.read()
 
@@ -58,9 +75,12 @@ def main(conn) -> tuple[int, int]:
         rows_inserted = cur.rowcount  # fact_orders must remain last in transform.sql
     logger.info(f"Transformations complete: {rows_inserted} fact rows inserted")
 
-    # TODO: rows_updated
-    reconcile(conn, rows_inserted)
-    return rows_inserted, 0
+    after_cust, after_prod = get_expired_counts(conn)
+
+    rows_updated = (after_cust - before_cust) + (after_prod - before_prod)
+
+    reconcile(conn, rows_inserted, rows_updated)
+    return rows_inserted, rows_updated
 
 
 if __name__ == "__main__":
