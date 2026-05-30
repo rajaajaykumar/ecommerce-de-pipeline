@@ -103,7 +103,7 @@ CREATE TABLE staging.stg_products (
 DROP TABLE IF EXISTS warehouse.dim_customers CASCADE;
 CREATE TABLE warehouse.dim_customers (
     customer_key SERIAL PRIMARY KEY,
-    customer_id TEXT NOT NULL UNIQUE,
+    customer_id TEXT NOT NULL,
     customer_unique_id TEXT,
     effective_from DATE NOT NULL DEFAULT CURRENT_DATE,
     effective_to DATE,
@@ -119,7 +119,7 @@ CREATE TABLE warehouse.dim_customers (
 DROP TABLE IF EXISTS warehouse.dim_products CASCADE;
 CREATE TABLE warehouse.dim_products (
     product_key SERIAL PRIMARY KEY,
-    product_id TEXT NOT NULL UNIQUE,
+    product_id TEXT NOT NULL,
     effective_from DATE NOT NULL DEFAULT CURRENT_DATE,
     effective_to DATE,
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
