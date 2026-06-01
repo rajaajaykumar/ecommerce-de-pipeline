@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     conn = get_connection()
-    conn.autocommit = False
+    # conn.autocommit = False
     batch_id = None
 
     try:
