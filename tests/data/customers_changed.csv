@@ -1,0 +1,4 @@
+customer_id,customer_unique_id,customer_zip_code_prefix,customer_city,customer_state
+cust_001,uniq_001,12345,curitiba,SP
+cust_002,uniq_002,23456,rio de janeiro,RJ
+cust_003,uniq_003,34567,belo horizonte,MG

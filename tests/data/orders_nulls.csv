@@ -1,0 +1,4 @@
+"order_id","customer_id","order_status","order_purchase_timestamp","order_approved_at","order_delivered_carrier_date","order_delivered_customer_date","order_estimated_delivery_date"
+order_001,,delivered,2021-01-01 10:00:00,2021-01-01 11:00:00,2021-01-02 08:00:00,2021-01-05 14:00:00,2021-01-10 00:00:00
+,cust_002,shipped,2021-01-02 09:00:00,2021-01-02 10:00:00,,,2021-01-12 00:00:00
+order_003,cust_003,,2021-01-03 08:00:00,,,,2021-01-15 00:00:00

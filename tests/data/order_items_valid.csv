@@ -1,0 +1,3 @@
+order_id,order_item_id,product_id,seller_id,shipping_limit_date,price,freight_value
+order_001,1,prod_001,seller_001,2021-01-05 00:00:00,99.90,10.00
+order_002,1,prod_002,seller_002,2021-01-06 00:00:00,199.90,15.00
