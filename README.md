@@ -110,6 +110,16 @@ Each pipeline execution is tracked through:
 * Rows rejected
 * Error message
 
+### Workflow Orchestration
+
+Pipeline orchestration is implemented using Apache Airflow.
+
+Features include:
+* DAG-based workflow execution
+* Batch-level audit tracking
+* XCom-based metric sharing between tasks
+* Failure handling with audit updates
+
 ### Reconciliation Reporting
 
 Pipeline reports:
@@ -132,13 +142,18 @@ Comprehensive pytest suite covering:
 ## Tech Stack
 
 * **Languages**: Python, SQL
-* **Libraries**: pandas, psycopg2, pytest, python-dotenv
+* **Libraries**: pandas, psycopg2, pytest, python-dotenv, Apache Airflow
 * **Database**: PostgreSQL
 
 ## Project Structure
 
 ```text
 ecommerce-de-pipeline/
+│
+├── config/
+│
+├── dags/
+│   └── olist_pipeline_dag.py
 │
 ├── data/raw/
 │
@@ -147,6 +162,8 @@ ecommerce-de-pipeline/
 │   └── index.sql
 │
 ├── images/
+├── logs/
+├── plugins/
 │
 ├── scripts/
 │   └── split_batches.py
@@ -167,8 +184,9 @@ ecommerce-de-pipeline/
 │   ├── test_transform.py
 │   └── test_validate.py
 │
-├── .env
 ├── .env.example
+├── .gitignore
+├── docker-compose.yaml
 ├── README.md
 ├── requirements.txt
 └── run_pipeline.py
@@ -244,6 +262,23 @@ against PostgreSQL.
 python run_pipeline.py
 ```
 
+### 8. Run with Airflow
+
+Initialize Airflow:
+
+```bash
+docker compose up airflow-init
+```
+
+Start services:
+
+```bash
+docker compose up -d
+```
+
+Access Airflow UI:
+http://localhost:8080
+
 ## Running Tests
 
 Run all tests:
@@ -291,12 +326,20 @@ The warehouse combines:
 
 This balances storage efficiency with historical accuracy.
 
+### Airflow-Based Orchestration
+
+The pipeline is orchestrated through Apache Airflow while keeping transformation logic inside reusable Python and SQL modules.
+
+Benefits:
+* Separation of orchestration and business logic
+* Improved observability through task-level execution
+* Easier scheduling and monitoring
+* Simplified retry and failure management
+
 ## Future Enhancements
 
 Potential next steps:
-* Apache Airflow orchestration
 * AWS S3 integration
-* Dockerized deployment
 * Data quality framework expansion
 * CI/CD pipeline
 * PySpark implementation
@@ -313,3 +356,5 @@ This project demonstrates:
 * PostgreSQL optimization
 * Automated testing
 * Production-style pipeline design
+* Workflow orchestration with Apache Airflow
+* Docker-based local development environment
