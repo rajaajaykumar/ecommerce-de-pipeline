@@ -14,7 +14,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-INPUT_DIR = Path("data/raw/")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+INPUT_DIR = PROJECT_ROOT / "data" / "raw"
+
 INGEST_MANIFEST = [
     {
         "csv_file": "olist_orders_dataset.csv",
